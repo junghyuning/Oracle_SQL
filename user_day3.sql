@@ -98,7 +98,8 @@ SELECT W.ENAME "사원",M.ENAME "관리자",B.ENAME "관리자의 관리자" FROM EMP "W" LE
 
 
 --SUBQUERY : 쿼리 안의 쿼리 -> 액자식 구성 느낌
---
+--WHERE/HAVING절에서 사용: 스칼라 서브쿼리
+--FROM절에서 사용 : INLINE VIEW
 
 --EMP테이블에서 사원이름이 SCOTT인 사원보다 많은 급여를 받는 사원의 사원번호, 사원이름, 급여
 SELECT SAL FROM EMP WHERE ENAME = 'SCOTT';
@@ -169,5 +170,6 @@ SELECT EMPNO,ENAME,SAL FROM EMP WHERE SAL> (SELECT AVG(SAL) FROM EMP);
 --4. 사원 테이블에서 CLARK와 같은 부서이며, 사번이 7698인 직원의 급여보다 많은 급여를 받는 사원들의 사번, 이름, 급여를 검색하시오.
 SELECT EMPNO,ENAME,SAL FROM EMP WHERE SAL>(SELECT SAL FROM EMP WHERE EMPNO=7698) AND DEPTNO=(SELECT DEPTNO FROM EMP WHERE ENAME='CLARK');
 --5. 사원 테이블에서 부서별 최대 급여를 받는 사원들의 사번, 이름, 부서코드, 급여를 검색하시오. 
---(E1=사원정보를 추출할 테이블 / E2 = 부서별 급여를 비교할 테이블) -> 조건절에서 E1.DEPTNO=E2.DEPTNO 라고 조건을 한정했으므로 부서의 
+--(E1=사원정보를 추출할 테이블 / E2 = 부서별 급여를 비교할 테이블) -> 조건절에서 E1.DEPTNO=E2.DEPTNO 라고 조건을 한정했으므로 사원이 본인의 부서의 최대급여와만 비교가능
+--해당 쿼리에서는 서브쿼리가먼저 수행되는것이 아니라 쿼리가 동시에 돌아가기때문에 위처럼 IN절의 조건이 메인쿼리에도 영향을 줄 수있음.)
 SELECT EMPNO,ENAME,DEPTNO,SAL FROM EMP E1 WHERE SAL IN (SELECT MAX(SAL) FROM EMP E2 WHERE E1.DEPTNO=E2.DEPTNO GROUP BY DEPTNO);
