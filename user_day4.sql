@@ -1,4 +1,4 @@
---주요 내용 : SIUD / PK,FK 제약조건 / TCL
+--주요 내용 : INLINEVIEW /SIUD / PK,FK 제약조건 / TCL
 --서브쿼리 위치에 따른 종류
 --1. 스칼라 서브쿼리(SCALAR SUBQUERY) : SELECT(검색), WHERE, GROUP BY, HAVING, ORDER BY
 -- 하나의 SQL 명령으로 취급되지만 내부적으로는 하나의 함수로 처리
