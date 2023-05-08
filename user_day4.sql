@@ -1,4 +1,5 @@
 --주요 내용 : INLINEVIEW /SIUD / PK,FK 제약조건 / TCL
+--select - from - where / insert - into / update set / delete from where
 --서브쿼리 위치에 따른 종류
 --1. 스칼라 서브쿼리(SCALAR SUBQUERY) : SELECT(검색), WHERE, GROUP BY, HAVING, ORDER BY
 -- 하나의 SQL 명령으로 취급되지만 내부적으로는 하나의 함수로 처리
@@ -116,6 +117,8 @@ DESC DEPT;
 --DEPT 테이블에 새로운 행(부서정보) 삽입
 INSERT INTO DEPT VALUES(50,'회계부','서울');
 SELECT*FROM DEPT;
+--INSERT INTO DEPT(DEPTNO,DNAME) VALUES(99,'감사부');  -- 이렇게 할경우 삽입하지 않은 것은 기본값으로 저장됨.
+--DELETE FROM DEPT WHERE DEPTNO=99;
 COMMIT;
 
 INSERT INTO DEPT VALUES(6000,'총무부','수원'); -- 부서번호는 숫자값 2자리만 저장 가능 -> BUT 4자리 값 입력했으므로 오류
