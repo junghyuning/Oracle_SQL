@@ -1,0 +1,353 @@
+ -- index / DCL / PL/SQL 
+ 
+ --인덱스: 빠르게 검색하기 위한 기능을 제공
+ --컬럼에 인덱스를 설정시, 인덱스 영역을 생성 => 관련 정보를 저장해 컬럼에 대한 행 검색속도가 증가함.
+ --조건식에서 많이 사용하는 컬럼에 인덱스를 설정 -> 행이 많을 때 인덱스를 설정하는 것이 효율적임.
+ 
+ --유니크 인덱스 : PK OR UNIQUE 제약조건에 의해 자동 생성되는 인덱스
+ --비유니크 인덱스(NON-UNIQUE INDEX) : 사용자가 컬럼에 수동으로 인덱스 생성하여 설정하는 인덱스
+ 
+ --USER3 테이블 생성 - 회원번호(숫자-PK), 이름(문자), 이메일(문자-UNIQUE)
+ CREATE TABLE USER3(NO NUMBER(4) CONSTRAINT USER3_NO_PK PRIMARY KEY, NAME VARCHAR2(20), EMAIL VARCHAR2(50) CONSTRAINT USER3_EMAIL_UK UNIQUE);
+ 
+ --USER3 테이블의 제약조건 확인
+ SELECT CONSTRAINT_NAME, CONSTRAINT_TYPE FROM USER_CONSTRAINTS WHERE TABLE_NAME='USER3';
+ 
+ --INDEX확인
+ SELECT C.INDEX_NAME, COLUMN_NAME, UNIQUENESS FROM USER_INDEXES "I" JOIN USER_IND_COLUMNS "C" ON I.INDEX_NAME = C.INDEX_NAME WHERE C.TABLE_NAME='USER3'; 
+ 
+ --인덱스를 생성하여 NAME 컬럼에 설정하기
+CREATE INDEX USER3_NAME_INDEX ON USER3(NAME);
+SELECT C.INDEX_NAME, COLUMN_NAME, UNIQUENESS FROM USER_INDEXES "I" JOIN USER_IND_COLUMNS "C" ON I.INDEX_NAME = C.INDEX_NAME WHERE C.TABLE_NAME='USER3'; 
+
+--인덱스 삭재 -> NON-UNIQUE INDEX => DROP INDEX 인덱스명
+-- UNIQUE INDEX의 경우 PK, UNIQUE 제약조건에 의해 생성되는 인덱스이므로, 제약조건의 삭제를 통해 인덱스를 삭제함.
+DROP INDEX USER3_NAME_INDEX;
+SELECT C.INDEX_NAME, COLUMN_NAME, UNIQUENESS FROM USER_INDEXES "I" JOIN USER_IND_COLUMNS "C" ON I.INDEX_NAME = C.INDEX_NAME WHERE C.TABLE_NAME='USER3'; 
+
+ALTER TABLE USER3 DROP CONSTRAINT USER3_EMAIL_UK; --제약조건 삭제시, 유니크 인덱스는 자동 삭제 됨.
+SELECT C.INDEX_NAME, COLUMN_NAME, UNIQUENESS FROM USER_INDEXES "I" JOIN USER_IND_COLUMNS "C" ON I.INDEX_NAME = C.INDEX_NAME WHERE C.TABLE_NAME='USER3'; 
+
+
+--동의어(SYNONYM) : 오라클 객체에 다른 이름을 부여하여 사용하기위한 객체
+-- 1. 전용 동의어 : 특정 사용자만 사용할 수 있는 동의어 - 일반 사용자에 의해 관리
+-- 2. 공용 동의어 : 모든 사용자가 사용할 수 있는 도으이 어 - 관리자에 의해 관리.
+
+
+--CREATE SYNONYM 권한 필요 -> SYS계정이 허가해줘야 함.
+CREATE SYNONYM BONUS FOR COMM;  --COMM테이블에 대한 동의어 BONUS 생성
+SELECT * FROM COMM;
+SELECT * FROM BONUS;
+
+--COMM 관련 공의어 확인 - USER_SYNONYMS : 동의어 정보를 제공하는 딕셔너리
+SELECT TABLE_NAME, SYNONYM_NAME, TABLE_OWNER FROM USER_SYNONYMS WHERE TABLE_NAME='COMM';
+
+--동의어 삭제 : DROP [PUBLIC] SYNONYM 동의어
+DROP SYNONYM BONUS;
+SELECT * FROM BONUS; --테이블이 사라졌으므로 오류 
+SELECT * FROM COMM; -- (동의어만 사라졌을 뿐, COMM테이블은 존재 함.)
+SELECT TABLE_NAME, SYNONYM_NAME, TABLE_OWNER FROM USER_SYNONYMS WHERE TABLE_NAME='COMM';
+
+--사용자(USER) : 시스템(DBMS) 를 사용할 수 있는 객체 - ACCOUNT(계정) : 권한을 가지고 있는 사용자
+--계정관리는 시스템관리자(SYSDBA - SYS 계정)만 가능
+
+--계정생성 : CREATE USER 계정명 IDENTIFIED BY 비밀번호
+--> BUT, ORACLE 12C VER 이상에서는 계정을 관리하기 전에 세션에 대한 환경설정을 변경 해야 함.
+--> 계정생성 이전에, ALTER SESSION SET "_ORACLE_SCRIPT"=TRUE; 필요함
+
+SELECT USERNAME,ACCOUNT_STATUS, DEFAULT_TABLESPACE, CREATED FROM DBA_USERS WHERE USERNAME='KIM';
+--> 현 세션의 계정인 SCOTT은 DBA_USERS에대한 권한이 없으므로..? 에러 발생.
+
+--계정의 비밀번호 변경 -> 기본적으로 유효기간 180일
+-- 형식) ALTER USER 계정명 IDENTIFIED BY 비밀번호
+
+-- 계정 상태 변경 - OPEN : 활성화 / LOCK : 계정 비활성화
+--오라클 서버 접속시 계정의 비밀번호를 5번 틀리면 계정의 상태가 자동으로 LOCK 상태로 변경
+--형식)ALTER USER 계정명 ACCOUNT [LOCK|UNLOCK]=>[LOCK\OPEN]으로 상태 변경
+--> ALTER USER KIM ACCOUNT LOCK;
+
+-- 계정의 테이블 스페이스 변경 
+-- TABLE SPACE란? DATABASE OBJECT ( TABLE/VIEW/SEQUENCE/INDEX) 가 저장되는 장소
+-- ORACLE XE 에서는 기본적으로 SYSTEM(관리자) TABLE SPACE와 USERS(사용자/계정) TABLE SPACE를 제공함. -> KIM은 유저이므로 USERS TABLE SPACE 를 사용함.
+--> ALTER USER KIM DEFAULT TABLESPACE USERS;  -- XE이전 버전에서는 계정의 SPACE 가 SYSTEM TABLESPACE로 설정되어있을 수 있으므로 그런 경우 수정이 필요 함.
+
+-- 테이블 스페이스에 대한 물리적 저장크기 변경 -> 용량제한
+--형식) alter user 계정명 QUOTA 제한크기  ON 테이블스페이스
+
+-- 무제한으로 변경
+-- ALTER USER KIM QUOTA UNLIMITED ON USERS;
+
+-- 계정의 물리적 저장 크기 확인 - DBA_TS_QUOTAS : 물리적 제한크기 제공 딕셔너리
+-- SELECT TABLESPACE_NAME, USERNAME, MAX_BYTES FROM DBA_TS_QUOTAS;
+
+--계정의 삭제 : DROP USER KIM;
+
+-- USER KIM 계정을 생성했다 한들, 실제로는 권한이 하나도 없기 때문에 할수있는 일이 하나도 없음
+--> DCL을 통해 권한을 부여하고 회수해야 함.
+-- 오라클권한 = ORACLE PRIVILEGE : 시스템권한(관리자) & 객체 권한(일반 사용바) (표준 SQL의 경우 객체권한만 있음)
+-- 1. 시스템권한 : 시스템을 구성하는 객체를 관리하기 위한 명령(DDL)에 대한 사용 권한
+--> 시스템 권한을 계정에게 부여/회수 : 
+--  GRANT [PRIVILEGE|ROLE],[PRIVILEGE|ROLE] ... TO [계정명 | PUBLIC] (WITH ADMIN OPTION) [IDENTIFIED BY PASSWORD]
+-- 롤(ROLL) : 시스템 권한을 그룹화하여 사용하는 이름
+--WITH ADMIN OPTION : 부여 받은 시스템 권한을 다른 계정에게 부여하거나 회수하는 권한을 제공하는 기능
+--시스템 권한을 부여받은 계정이 없는 경우 자동으로 계정 생성
+--GRANT 명령에 의해 계정이 생성된 경우 반드시 IDENTIFIED BY 키워드를 사용하여 비밀번호 설정
+
+
+-->>여기서 부터 SQL PLUS 에서 KIM 계정을 사용하여 진행 함..!
+--KIM 계정 생성
+--CREATE USER KIM IDENTIFIED BY 1234;
+-- C:\USERS\USER>SQLPLUS KIM
+--> SQL PLUS 사용 - KIM 접속시, CREATE SESSION 권한이 없어 접속 불가
+--> 시스템관리자(SYSDBA)가 KIM 계정에 CREATE SESSION 시스템 권한 부여 (GRANT CREATE SESSION TO KIM;)
+--GRANT CREATE TABLE TO KIM;
+--CREATE TABLE SAWON(NO NUMBER(4) PRIMARY KEY, NAME VARCHAR2(20), PAY NUMBER);
+--> IF (SELECT * FROM EMP; 가능? -> 불가 B/C KIM의 스키마에 EMP가 없기 때문
+
+-- 2. 사용자권한/객체권한 : DQL OR DML
+-- SIUD
+-- ALL : 객체에 관련된 모든 명령 사용 권한
+-- WITH GRANT OPTION : 부여받은 객체 권한을 다른 계정에게 부여/회수 할수있는 권한을 줄것인지
+SELECT * FROM SCOTT.DEPT;
+SELECT * FROM DEPT; --현재 사용중인 계정의 스키마에 존재하는 테이블의 경우 계정을 굳이 쓸필요 X
+--> BUT 해당 명령을 KIM 계정에서 실행해봤자 여전히 접근권한이 없기 때문에 오류
+GRANT SELECT ON DEPT TO KIM; --SCOTT의 테이블이므로 접근권한을 줄 수 있음.
+--부여한 객체 권한 확인
+SELECT * FROM USER_TAB_PRIVS_MADE;
+--부여받은 객체 권한 확인
+SELECT * FROM USER_TAB_PRIVS_RECD;
+
+--REVOKE : 권한 회수
+REVOKE SELECT ON DEPT FROM KIM;
+
+--CREATE SESSION 권한 회수 -> 관리자 계정에서 수행
+
+--ROLE : 관리자가 계정의 시스템 권한을 효율적으로 관리하기 위해 사용하는 시스템 권한 그룹
+--CONNECT : 기본적인 시스템 권한 그룹 - CREATE SESSIOIN, CREATE TABLE, ALTER SESSION, CREATE SYNONYM 등
+--RESOURCE : 객체관련 시스템 권한 그룹 - CREATE TABLE, CREATE SEQUENCE, CREATE TRIGGER 등
+
+--관리자가 LEE계정에게 CONNECT 롤과 RESOURCE 롤 부여
+--시스템 권한을 부여받은 계정이 없는 경우 계정을 자동 생성함. -> 비번 반드시 설정
+--GRANT CONNECT,RESOURCE TO LEE IDENTIFIED BY 5678;  -> 계정 생성과 권한부여를 한번에 함.
+
+--PL/SQL(PROCEDURAL LANGUAGE EXTENSION SQL) : SQL에 없는 변수 선언, 선택처리, 반복처리를 제공하는 절차적인 언어
+--3영역으로 구분하여 PL/SQL 작성
+-- 1. DECLARE 영역(선언부) : DECLARE - 변수 선언(선택)
+-- 2.EXECUTEABLE 영역(실행부) : BEGIN - SQL 명령 포함 다수의 명령 작성(필수)
+-- 3.EXCEPTION 영역(예외처리부) : EXCEPTION - 예외 처리(선택)
+
+--영역에서 하나의 명령을 구분하기 위해 ; 사용
+--마지막 영역은 END 키워드로 마무리 후 ; 사용
+--PL/SQL 실행을 위해 마지막에 / 기호 사용
+
+--메세지를 출력할 수 있는 세션의 환경변수 설정값 변경
+SET SERVEROUT ON;
+
+--메세지를 출력하는 함수 - PL/SQL 실행부에서 호출하여 사용함.
+-- 형식) DBMS_OUTPUT.PUT_LINE(출력메세지)
+
+--환영메세지를 출력하는 PL/SQL
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('HELLO,ORACLE!!');
+END;
+/
+
+--변수 선언 및 초기값 입력 - 선언부
+--CONSTANT : 변수에 저장된 초기값을 변경하지 못하도록 설정하는 키워드 - 상수
+--NOT NULL : 변수에 NULL 사용 불가
+--:=    : 대입연산자
+--[-]표현식 : 변수에 저장될 값에 대한 표현방법 - 값, 변수(저장값), 연산식(결과값), 함수
+
+-- 스칼라 변수 : 오라클 자료형을 이용하여 선언된 변수
+-- 스칼라 변수를 선언하여 값을 저장 -> 화면에 변수값을 출력하는 PL/SQL 작성.
+DECLARE
+    --변수 선언 및 초기화
+    VEMPNO NUMBER(4) := 7788;
+    VENAME VARCHAR2(20) := 'SCOTT';
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('사원번호/사원이름');
+    DBMS_OUTPUT.PUT_LINE('---------------------');    
+    DBMS_OUTPUT.PUT_LINE(VEMPNO||'/'||VENAME);
+    DBMS_OUTPUT.PUT_LINE('---------------------');    
+    VEMPNO := 7893;
+    VENAME := 'KING';
+    DBMS_OUTPUT.PUT_LINE('사원번호/사원이름');
+    DBMS_OUTPUT.PUT_LINE('---------------------');    
+    DBMS_OUTPUT.PUT_LINE(VEMPNO||'/'||VENAME);
+END;
+/
+
+--레퍼런스 변수 : 다른 변수의 자료형 OR 테이블의 컬럼 자료형을 참조하여 선언된 변수 (선언부)
+--테이블에 저장된 행을 검색하여 컬럼값을 변경에 저장하는 명령 - 실행부
+-- 검색대상과 변수의 갯수 및 자료형 반드시 일치해야 함.
+
+--EMP 테이블의 EMPNO 컬럼과 ENAME 컬럼의 자료형을 참조하여 레퍼런스 변수를 선언
+--EMP 테이블에서 사원이름이 SCOTT인 사원의 사원번호와 사원이름을 검색하여 레퍼런스 변수에 저장, 출력하는 PL/SQL 
+DECLARE
+    VEMPNO EMP.EMPNO%TYPE;
+    VENAME EMP.ENAME%TYPE;
+BEGIN
+    /* PL/SQL의 주석 처리 - 프로그램에 설명을 제공 */
+    /* 단일행을 검색하여 검색행의 컬럼값을 레퍼런스 변수에 저장 - 다중행이 검색될 경우 에러 발생 */
+    SELECT EMPNO,ENAME INTO VEMPNO,VENAME FROM EMP WHERE ENAME='SCOTT';
+    DBMS_OUTPUT.PUT_LINE('사원번호 / 사원이름');
+    DBMS_OUTPUT.PUT_LINE('-----------------');
+    DBMS_OUTPUT.PUT_LINE(VEMPNO||' / '||VENAME);
+END;
+/
+
+--테이블변수 : 테이블에 저장된 행을 여러개 검색하여 얻은 다수의 컬럼값을 저장위해 선언하는 변수 -> 일종의 "배열" 이라고 생각
+--형식) 테이블변수명 테이블타입명
+--테이블 변수를 생성하기 위해 테이블 변수의 자료형(테이블타입)을 먼저 선언함
+--> TYPE 테이블타입명 IS TABLE OF {자료형|변수명%TYPE|테이블명.컬러명%TYPE} [NOT NULL] [INDEX BY BINARY_INTEGER]
+--테이블 변수는 요소를 첨자로 구분하여 사용함. -> 첨자는 1부터 1씩 증가하는 숫자
+--> 테이블변수명(첨자)
+
+--EMPNO 테이블의 EMPNO 컬럼과 ENAME 컬럼을 참조하여 테이블 변수 선언 
+--> EMP 테이블에 저장된 모든 사원정보(번호,이름) 검색하여 순차적 출력
+DECLARE
+    /* 테이블 타입 선언 */
+    TYPE EMPNO_TABLE_TYPE IS TABLE OF EMP.EMPNO%TYPE INDEX BY BINARY_INTEGER;
+    TYPE ENAME_TABLE_TYPE IS TABLE OF EMP.ENAME%TYPE INDEX BY BINARY_INTEGER;
+    
+    /* 테이블 변수 선언 */
+    VEMPNO_TABLE EMPNO_TABLE_TYPE;
+    VENAME_TABLE ENAME_TABLE_TYPE;
+    
+    /* 테이블 변수의 요소를 반복 처리하기 위한 첨자 역활의 변수 선언 */
+    I BINARY_INTEGER := 0;
+BEGIN 
+    /* EMP테이블에 저장된 모든 사원의 정보(번호,이름) 검색 -> 테이블 변수요소에 저장하기 위한 반복문*/
+    /* 한번에 저장할 수 없으므로 FOR문 사용하여 하나씩 순차적으로 저장함.*/
+    FOR K IN (SELECT EMPNO,ENAME FROM EMP) LOOP
+        I := I + 1;
+        VEMPNO_TABLE(I) := K.EMPNO;
+        VENAME_TABLE(I) := K.ENAME;
+    END LOOP;
+    
+    DBMS_OUTPUT.PUT_LINE('사원번호 / 사원이름');
+    DBMS_OUTPUT.PUT_LINE('-----------------');
+    /* 테이블 변수에 저장된 요소값을 출력하기 위한 반복문 */
+    FOR J IN 1..I LOOP
+        DBMS_OUTPUT.PUT_LINE(VEMPNO_TABLE(J)||' / '||VENAME_TABLE(J));
+    END LOOP;
+END;
+/
+
+--레코드 변수 : 테이블에 저장된 하나의 행의 모든 컬럼값을 저장하기 위해 선언하는 변수
+--형식)레코드변수명 레코드타입명
+--레코드 변수를 생성하기 위해 레코드 변수의 자료형(레코드 타입)을 먼저 선언
+--형식)TYPE 레코드타입명 IS RECORD(필드명 {자료형|변수명%TYPE|테이블명.컬러명%TYPE} [NOT NULL] 
+--    [{:=|DEFAULT} 표현식],...)
+
+--레코드 변수의 필드에 접근하는 방법
+--형식)레코드변수명.필드명
+
+--EMP 테이블의 EMPNO,ENAME,JOB,SAL,DEPTNO 컬럼을 참조하여 레코드 변수를 선언하고 EMP 테이블에서
+--사원번호가 7844인 사원의 사원번호,사원이름,업무,급여,부서번호를 검색하여 레코드 변수에 저장후 출력하는 PL/SQL 작성
+
+DECLARE
+    /* 레코드 타입 선언 */
+    TYPE EMP_RECORD_TYPE IS RECORD(VEMPNO EMP.EMPNO%TYPE,VENAME EMP.ENAME%TYPE,VJOB EMP.JOB%TYPE
+        ,VSAL EMP.SAL%TYPE,VDEPTNO EMP.DEPTNO%TYPE);
+    /* 레코드 변수 선언 */     
+    EMP_RECORD EMP_RECORD_TYPE;
+BEGIN
+    /* 단일 검색행의 컬럼값을 레코드 변수의 필드에 저장 - 검색행이 다중행인 경우 에러 발생 */
+    SELECT EMPNO,ENAME,JOB,SAL,DEPTNO INTO EMP_RECORD.VEMPNO,EMP_RECORD.VENAME,EMP_RECORD.VJOB
+        ,EMP_RECORD.VSAL,EMP_RECORD.VDEPTNO FROM EMP WHERE EMPNO=7844;
+    DBMS_OUTPUT.PUT_LINE('사원번호 = '||EMP_RECORD.VEMPNO);
+    DBMS_OUTPUT.PUT_LINE('사원이름 = '||EMP_RECORD.VENAME);
+    DBMS_OUTPUT.PUT_LINE('업무 = '||EMP_RECORD.VJOB);
+    DBMS_OUTPUT.PUT_LINE('급여 = '||EMP_RECORD.VSAL);
+    DBMS_OUTPUT.PUT_LINE('부서번호 = '||EMP_RECORD.VDEPTNO);
+END;
+/
+
+--레코드 타입 없이 테이블 행을 참조하여 레코드 변수 선언 가능 - 행의 컬럼이 자동으로 필드로 선언
+--형식)레코드변수명 테이블명%ROWTYPE;
+
+--EMP 테이블의 EMPNO,ENAME,JOB,SAL,DEPTNO 컬럼을 참조하여 레코드 변수를 선언하고 EMP 테이블에서
+--사원번호가 7844인 사원의 사원번호,사원이름,업무,급여,부서번호를 검색하여 레코드 변수에 저장후 출력하는 PL/SQL 작성
+DECLARE
+    /* 레코드 변수 선언 */     
+    EMP_RECORD EMP%ROWTYPE;
+BEGIN
+    /* 단일 검색행의 모든 컬럼값을 레코드 변수의 필드에 저장 - 검색행이 다중행인 경우 에러 발생 */
+    SELECT * INTO EMP_RECORD FROM EMP WHERE EMPNO=7844;
+    DBMS_OUTPUT.PUT_LINE('사원번호 = '||EMP_RECORD.EMPNO);
+    DBMS_OUTPUT.PUT_LINE('사원이름 = '||EMP_RECORD.ENAME);
+    DBMS_OUTPUT.PUT_LINE('업무 = '||EMP_RECORD.JOB);
+    DBMS_OUTPUT.PUT_LINE('급여 = '||EMP_RECORD.SAL);
+    DBMS_OUTPUT.PUT_LINE('부서번호 = '||EMP_RECORD.DEPTNO);
+END;
+/
+
+
+--선택문 : 명령을 선택하여 실행하기 구문
+--IF : 조건식에 의해 명령을 선택 실행
+--형식)IF(조건식) THEN 명령; 명령; ... END IF;
+--조건식의 ( ) 기호 생략 가능
+
+--EMP 테이블에서 사원번호가 7788인 사원정보를 검색하여 사원번호,사원이름,부서번호에 대한 부서이름을 출력하는 PL/SQL 작성
+--10 : ACCOUNTING, 20 : RESEARCH, 30 : SALES, 40 : OPERATION
+DECLARE
+    VEMP EMP%ROWTYPE;/* 레코드 변수 선언 */
+    VDNAME VARCHAR2(20) := NULL;/* 부서이름을 저장하기 위한 스칼라 변수 선언 */
+BEGIN
+    SELECT * INTO VEMP FROM EMP WHERE EMPNO=7788;
+    
+    IF(VEMP.DEPTNO = 10) THEN VDNAME := 'ACCOUNTING'; END IF;
+    IF(VEMP.DEPTNO = 20) THEN VDNAME := 'RESEARCH'; END IF;
+    IF(VEMP.DEPTNO = 30) THEN VDNAME := 'SALES'; END IF;
+    IF(VEMP.DEPTNO = 40) THEN VDNAME := 'OPERATION'; END IF;
+
+    DBMS_OUTPUT.PUT_LINE('사원번호 = '||VEMP.EMPNO);
+    DBMS_OUTPUT.PUT_LINE('사원이름 = '||VEMP.ENAME);
+    DBMS_OUTPUT.PUT_LINE('부서이름 = '||VDNAME);
+END;
+/
+
+--형식)IF(조건식) THEN 명령; 명령; ... ELSE 명령; 명령;... END IF;
+
+--EMP 테이블에서 사원번호가 7788인 사원정보를 검색하여 사원번호,사원이름,사원연봉을 계산하여 출력하는 PL/SQL 작성
+--사원연봉 : (급여+성과급)*12
+DECLARE
+    VEMP EMP%ROWTYPE;
+    ANNUAL NUMBER(7,2) := 0;
+BEGIN
+    SELECT * INTO VEMP FROM EMP WHERE EMPNO=7788;
+    
+    IF VEMP.COMM IS NULL THEN
+        ANNUAL := VEMP.SAL * 12;
+    ELSE 
+        ANNUAL := ( VEMP.SAL + VEMP.COMM ) * 12;
+    END IF;    
+    
+    DBMS_OUTPUT.PUT_LINE('사원번호 = '||VEMP.EMPNO);
+    DBMS_OUTPUT.PUT_LINE('사원이름 = '||VEMP.ENAME);
+    DBMS_OUTPUT.PUT_LINE('사원연봉 = '||ANNUAL);
+END;
+/
+    
+--형식)IF(조건식) THEN 명령; 명령; ... ELSIF(조건식) 명령; 명령;... ELSE 명령; 명령;... END IF;
+
+--EMP 테이블에서 사원번호가 7788인 사원정보를 검색하여 사원번호,사원이름,부서번호에 대한 부서이름을 출력하는 PL/SQL 작성
+--10 : ACCOUNTING, 20 : RESEARCH, 30 : SALES, 40 : OPERATION
+DECLARE
+    VEMP EMP%ROWTYPE;
+    VDNAME VARCHAR2(20) := NULL;
+BEGIN
+    SELECT * INTO VEMP FROM EMP WHERE EMPNO=7788;
+    
+    IF(VEMP.DEPTNO = 10) THEN VDNAME := 'ACCOUNTING';
+    ELSIF(VEMP.DEPTNO = 20) THEN VDNAME := 'RESEARCH';
+    ELSIF(VEMP.DEPTNO = 30) THEN VDNAME := 'SALES';
+    ELSIF(VEMP.DEPTNO = 40) THEN VDNAME := 'OPERATION'; 
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('사원번호 = '||VEMP.EMPNO);
+    DBMS_OUTPUT.PUT_LINE('사원이름 = '||VEMP.ENAME);
+    DBMS_OUTPUT.PUT_LINE('부서이름 = '||VDNAME);
+END;
+/
