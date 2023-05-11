@@ -88,7 +88,7 @@ SELECT USERNAME,ACCOUNT_STATUS, DEFAULT_TABLESPACE, CREATED FROM DBA_USERS WHERE
 -- 1. 시스템권한 : 시스템을 구성하는 객체를 관리하기 위한 명령(DDL)에 대한 사용 권한
 --> 시스템 권한을 계정에게 부여/회수 : 
 --  GRANT [PRIVILEGE|ROLE],[PRIVILEGE|ROLE] ... TO [계정명 | PUBLIC] (WITH ADMIN OPTION) [IDENTIFIED BY PASSWORD]
--- 롤(ROLL) : 시스템 권한을 그룹화하여 사용하는 이름
+-- 롤(ROLE) : 시스템 권한을 그룹화하여 사용하는 이름
 --WITH ADMIN OPTION : 부여 받은 시스템 권한을 다른 계정에게 부여하거나 회수하는 권한을 제공하는 기능
 --시스템 권한을 부여받은 계정이 없는 경우 자동으로 계정 생성
 --GRANT 명령에 의해 계정이 생성된 경우 반드시 IDENTIFIED BY 키워드를 사용하여 비밀번호 설정
